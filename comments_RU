@@ -1,0 +1,31 @@
+# Создаем папку для импорта
+mkdir outlook 
+readpst  -o  outlook  -r "$1"
+
+# Добавляем всем папкам окончание .sbd
+find outlook -type d | tac | grep -v '^outlook$' | xargs -d '\n' -I{} mv {} {}.sbd 
+mv outlook outlook.sbd
+
+# Проверяем наличие файлов mbox во всех папках - создаем пустой при отсутствии
+# Если этого не сделать - папки, в которых нет писем, не отобразятся в Thunderbird
+find outlook.sbd -type d | xargs -d '\n' -I{} echo '"{}/mbox"' | xargs -L 1 touch
+
+# Перемещаем все файлы в mbox на уровень выше и даем название как у папка .sbd:
+# mv Входящие.sbd/mbox Входящие
+find outlook.sbd -name mbox -type f | xargs -d '\n' -I{} echo '"{}" "{}"' | sed -e 's/\.sbd\/mbox"$/"/' | xargs -L 1 mv
+
+# Удаляем оставшиеся пустые папки
+find outlook.sbd -empty -type d | xargs -d '\n' rmdir
+
+# Удаляем лишние файлы и перемещаем все на уровень выше
+rm -rf "outlook.sbd/`ls outlook.sbd | xargs -d '\n' -I{} echo '{}' | grep -v sbd`"
+mv outlook.sbd/*.sbd outlook.sbd/temp
+mv outlook.sbd/temp/* outlook.sbd/.
+rm -rf outlook.sbd/temp
+
+# Копируем папку outlook.sbd и пустой файл outlook в выбранную директорию
+# (по умолчнию нужно в локальные папки Thunderbird)
+cp -R outlook.sbd outlook "`zenity --file-selection --directory --title="Directory of Thunderbird's local folders"`"
+zenity --info --text="Done"
+
+# После этого в Thunderbird появятся все папки (кроме пустых - ни писем, ни вложенных папок)
